@@ -1,0 +1,46 @@
+--// Extract sales data by product category
+
+DECLARE start_date, end_date DATE;
+SET start_date = DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 4 YEAR), MONTH);
+SET end_date = DATE('2022-12-31');
+
+WITH raw
+AS
+(
+SELECT 
+  it.delivered_at
+  , it.order_id
+  , it.product_id
+  , it.status
+  , pr.name
+  , pr.brand
+  , pr.category
+  , od.num_of_item
+  , od.num_of_item * it.sale_price AS total_sale_price
+
+FROM `bigquery-public-data.thelook_ecommerce.order_items` it
+JOIN `bigquery-public-data.thelook_ecommerce.products` pr
+ON it.product_id = pr.id
+
+JOIN `bigquery-public-data.thelook_ecommerce.orders` od
+ON it.order_id = od.order_id
+
+WHERE
+  od.status = 'Complete' 
+  AND DATE(od.delivered_at) >= start_date
+  AND DATE(od.delivered_at) <= end_date
+
+ORDER BY 1 ASC
+)
+
+SELECT
+  DATE_TRUNC(DATE(raw.delivered_at), MONTH) as month
+  , FORMAT_DATE("%b %Y",DATE(raw.delivered_at)) AS month_name
+  , raw.category
+  , COUNT (DISTINCT(raw.order_id)) AS num_orders
+  , SUM(raw.num_of_item) AS num_items
+  , SUM(raw.total_sale_price) AS total_sales
+FROM raw 
+
+GROUP BY 1,2,3
+ORDER BY 1 ASC
